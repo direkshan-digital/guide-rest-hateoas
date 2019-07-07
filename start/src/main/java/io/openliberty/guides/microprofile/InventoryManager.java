@@ -1,15 +1,3 @@
-// tag::comment[]
-/*******************************************************************************
- * Copyright (c) 2017 IBM Corporation and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
- *
- * Contributors:
- *     IBM Corporation - Initial implementation
- *******************************************************************************/
- // end::comment[]
 package io.openliberty.guides.microprofile;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,24 +5,20 @@ import java.util.concurrent.ConcurrentMap;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
-import io.openliberty.guides.microprofile.util.InventoryUtil;
 import io.openliberty.guides.microprofile.util.ReadyJson;
+import io.openliberty.guides.microprofile.util.InventoryUtil;
 
-// tag::header[]
-// tag::cdi-scope[]
 @ApplicationScoped
-// end::cdi-scope[]
 public class InventoryManager {
-// end::header[]
 
     private ConcurrentMap<String, JsonObject> inv = new ConcurrentHashMap<>();
 
-    // tag::get[]
     public JsonObject get(String hostname) {
-        // tag::method-contents[]
         JsonObject properties = inv.get(hostname);
         if (properties == null) {
             if (InventoryUtil.responseOk(hostname)) {
@@ -45,34 +29,37 @@ public class InventoryManager {
             }
         }
         return properties;
-        // end::method-contents[]
     }
-    // end::get[]
 
-    // tag::add[]
     public void add(String hostname, JsonObject systemProps) {
-        // tag::method-contents[]
         inv.putIfAbsent(hostname, systemProps);
-        // end::method-contents[]
     }
-    // end::add[]
 
-    // tag::list[]
     public JsonObject list() {
-        // tag::method-contents[]
         JsonObjectBuilder systems = Json.createObjectBuilder();
         inv.forEach((host, props) -> {
             JsonObject systemProps = Json.createObjectBuilder()
-                                              .add("os.name", props.getString("os.name"))
-                                              .add("user.name", props.getString("user.name"))
-                                              .build();
+                                         .add("os.name", props.getString("os.name"))
+                                         .add("user.name", props.getString("user.name"))
+                                         .build();
             systems.add(host, systemProps);
         });
         systems.add("hosts", systems);
         systems.add("total", inv.size());
         return systems.build();
-        // end::method-contents[]
     }
-    // end::list[]
 
+    public JsonArray getSystems(String url) {
+        // inventory content
+        JsonObject content = InventoryUtil.buildHostJson("*", url);
+
+        // collecting systems jsons
+        JsonArrayBuilder jsonArray = inv.keySet().stream().map(host -> {
+            return InventoryUtil.buildHostJson(host, url);
+        }).collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::add);
+
+        jsonArray.add(content);
+
+        return jsonArray.build();
+    }
 }
